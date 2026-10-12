@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GEX Heatmap</title>
+<style>
+  :root { --bg:#0d1117; --panel:#161b22; --border:#30363d; --text:#e6edf3; --dim:#8b949e;
+          --pos:#1a7f37; --neg:#a40e26; --accent:#58a6ff; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; padding:12px; max-width:1200px; margin:0 auto; }
+  h1 { font-size:1.3rem; margin-bottom:4px; }
+  .sub { color:var(--dim); font-size:.8rem; margin-bottom:12px; }
+  .tickers { display:flex; gap:8px; margin-bottom:12px; }
+  .tickers button { background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:8px 20px; font-size:1rem; cursor:pointer; }
+  .tickers button.active { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+  .levels { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:8px; margin-bottom:12px; }
+  .level { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:8px 10px; }
+  .level .k { font-size:.7rem; color:var(--dim); text-transform:uppercase; }
+  .level .v { font-size:1.05rem; font-weight:600; margin-top:2px; }
+  .level .d { font-size:.72rem; color:var(--dim); margin-top:2px; }
+  .verdict { background:var(--panel); border:1px solid var(--border); border-left:4px solid var(--accent); border-radius:8px; padding:10px 12px; margin-bottom:12px; font-size:.9rem; }
+  .verdict strong { display:block; margin-bottom:4px; }
+  table { width:100%; border-collapse:collapse; font-size:.78rem; }
+  th, td { padding:6px 8px; text-align:right; border:1px solid var(--border); }
+  th { background:var(--panel); position:sticky; top:0; }
+  td.strike { text-align:left; font-weight:600; background:var(--panel); position:sticky; left:0; }
+  td.cell-pos { background:rgba(26,127,55,.25); }
+  td.cell-neg { background:rgba(164,14,38,.25); }
+  td.cell-max-pos { background:rgba(26,127,55,.55); font-weight:700; }
+  td.cell-max-neg { background:rgba(164,14,38,.55); font-weight:700; }
+  td.cell-spot { outline:2px solid var(--accent); outline-offset:-2px; }
+  .legend { display:flex; gap:16px; font-size:.75rem; color:var(--dim); margin-top:8px; flex-wrap:wrap; }
+  .legend span i { display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:4px; vertical-align:middle; }
+  .updated { color:var(--dim); font-size:.75rem; margin-top:12px; text-align:center; }
+  .glossary { margin-top:16px; font-size:.78rem; color:var(--dim); }
+  .glossary dt { color:var(--text); font-weight:600; margin-top:6px; }
+</style>
+</head>
+<body>
+<h1>GEX Heatmap</h1>
+<div class="sub">Dealer gamma exposure by strike &times; expiry — plain-English positioning map</div>
+<div class="tickers" id="tickers"></div>
+<div class="verdict" id="verdict"></div>
+<div class="levels" id="levels"></div>
+<div style="overflow-x:auto">
+<table id="grid"><thead><tr><th>Strike</th></tr></thead><tbody></tbody></table>
+</div>
+<div class="legend">
+  <span><i style="background:rgba(26,127,55,.55)"></i>Call wall (positive GEX)</span>
+  <span><i style="background:rgba(164,14,38,.55)"></i>Put wall (negative GEX)</span>
+  <span><i style="border:2px solid #58a6ff; width:8px; height:8px;"></i>Current price</span>
+</div>
+<dl class="glossary">
+  <dt>Wall</dt><dd>Strike with outsized gamma — magnets price toward it.</dd>
+  <dt>Flip (zero-gamma)</dt><dd>The level where dealer hedging switches direction. Above it = stable; a cross = regime change.</dd>
+  <dt>Max pain</dt><dd>Strike where option holders lose the most at expiry — price drifts toward it into expiry.</dd>
+  <dt>Expected move</dt><dd>What the at-the-money straddle is pricing for the move by expiry.</dd>
+  <dt>Glue / Bleed</dt><dd>Glue = positive-GEX chop (price sticks). Bleed = slow drift toward a magnet.</dd>
+</dl>
+<div class="updated" id="updated"></div>
+
+<script>
+let DATA = null, TICKER = 'AMZN';
+
+async function load() {
+  const r = await fetch('data.json');
+  DATA = await r.json();
+  const tickers = Object.keys(DATA.tickers);
+  if (!DATA.tickers[TICKER]) TICKER = tickers[0];
+  const bar = document.getElementById('tickers');
+  bar.innerHTML = '';
+  tickers.forEach(t => {
+    const b = document.createElement('button');
+    b.textContent = t; b.className = t === TICKER ? 'active' : '';
+    b.onclick = () => { TICKER = t; render(); };
+    bar.appendChild(b);
+  });
+  render();
+}
+
+function fmtM(v) { return (v >= 0 ? '+' : '') + v.toFixed(1) + 'M'; }
+
+function render() {
+  const s = DATA.tickers[TICKER];
+  // Verdict
+  const v = document.getElementById('verdict');
+  v.innerHTML = '<strong>' + s.verdict.label + '</strong>' + s.verdict.detail;
+  // Levels
+  const lv = document.getElementById('levels');
+  lv.innerHTML = [
+    ['Spot', s.spot.toFixed(2), 'live price'],
+    ['Net GEX', fmtM(s.net_gex), s.net_gex > 0 ? 'dealers long gamma → chop' : 'dealers short gamma → trends'],
+    ['Call wall', s.call_wall.strike, fmtM(s.call_wall.gex) + ' resistance magnet'],
+    ['Put wall', s.put_wall.strike, fmtM(s.put_wall.gex) + ' support magnet'],
+    ['Flip', s.flip, 'regime line'],
+    ['Max pain', s.max_pain, 'expiry gravity'],
+    ['Exp. move', '±$' + s.expected_move.toFixed(2), 'priced range'],
+  ].map(([k, val, d]) => '<div class="level"><div class="k">' + k + '</div><div class="v">' + val + '</div><div class="d">' + d + '</div></div>').join('');
+  // Grid
+  const thead = document.querySelector('#grid thead tr');
+  thead.innerHTML = '<th>Strike</th>' + s.expiries.map(e => '<th>' + e + '</th>').join('');
+  const tbody = document.querySelector('#grid tbody');
+  tbody.innerHTML = '';
+  // find max abs for highlighting
+  let maxPos = 0, maxNeg = 0;
+  s.rows.forEach(r => r.values.forEach(x => { if (x > maxPos) maxPos = x; if (x < maxNeg) maxNeg = x; }));
+  s.rows.forEach(r => {
+    const tr = document.createElement('tr');
+    let html = '<td class="strike">' + r.strike + '</td>';
+    r.values.forEach(x => {
+      let cls = x > 0 ? 'cell-pos' : 'cell-neg';
+      if (x === maxPos) cls = 'cell-max-pos';
+      if (x === maxNeg) cls = 'cell-max-neg';
+      if (Math.abs(r.strike - s.spot) < 0.01) cls += ' cell-spot';
+      html += '<td class="' + cls + '">' + (x === 0 ? '—' : fmtM(x)) + '</td>';
+    });
+    tr.innerHTML = html;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('updated').textContent =
+    'Data as of ' + new Date(s.timestamp).toLocaleString('en-US', { timeZone: 'America/New_York' }) + ' ET';
+}
+
+load().catch(e => { document.body.innerHTML = '<p style="padding:20px">Failed to load data.json</p>'; });
+</script>
+</body>
+</html>
