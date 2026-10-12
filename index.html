@@ -11,7 +11,10 @@
   body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; padding:12px; max-width:1200px; margin:0 auto; }
   h1 { font-size:1.3rem; margin-bottom:4px; }
   .sub { color:var(--dim); font-size:.8rem; margin-bottom:12px; }
-  .tickers { display:flex; gap:8px; margin-bottom:12px; }
+  .cats { display:flex; gap:8px; margin-bottom:8px; }
+.cats button { flex:1; background:#21262d; color:var(--text); border:1px solid var(--border); border-radius:20px; padding:10px; font-size:1rem; font-weight:600; cursor:pointer; }
+.cats button.active { background:#e6edf3; color:#0d1117; border-color:#e6edf3; }
+.tickers { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
   .tickers button { background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:8px 20px; font-size:1rem; cursor:pointer; }
   .tickers button.active { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
   .levels { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:8px; margin-bottom:12px; }
@@ -40,6 +43,7 @@
 <body>
 <h1>GEX Heatmap</h1>
 <div class="sub">Dealer gamma exposure by strike &times; expiry — plain-English positioning map</div>
+<div class="cats" id="cats"></div>
 <div class="tickers" id="tickers"></div>
 <div class="verdict" id="verdict"></div>
 <div class="levels" id="levels"></div>
@@ -61,22 +65,45 @@
 <div class="updated" id="updated"></div>
 
 <script>
-let DATA = null, TICKER = 'AMZN';
+let DATA = null, CAT = 'Index', TICKER = 'SPY';
 
 async function load() {
   const r = await fetch('data.json');
   DATA = await r.json();
-  const tickers = Object.keys(DATA.tickers);
-  if (!DATA.tickers[TICKER]) TICKER = tickers[0];
+  const cats = Object.keys(DATA.categories);
+  if (!DATA.categories[CAT]) CAT = cats[0];
+  renderCats();
+  renderTickerBar();
+  render();
+}
+
+function renderCats() {
+  const bar = document.getElementById('cats');
+  bar.innerHTML = '';
+  Object.keys(DATA.categories).forEach(c => {
+    const b = document.createElement('button');
+    b.textContent = c; b.className = c === CAT ? 'active' : '';
+    b.onclick = () => {
+      CAT = c;
+      const list = DATA.categories[CAT];
+      if (!list.includes(TICKER)) TICKER = list[0];
+      renderCats(); renderTickerBar(); render();
+    };
+    bar.appendChild(b);
+  });
+}
+
+function renderTickerBar() {
+  const tickers = DATA.categories[CAT];
+  if (!tickers.includes(TICKER)) TICKER = tickers[0];
   const bar = document.getElementById('tickers');
   bar.innerHTML = '';
   tickers.forEach(t => {
     const b = document.createElement('button');
     b.textContent = t; b.className = t === TICKER ? 'active' : '';
-    b.onclick = () => { TICKER = t; render(); };
+    b.onclick = () => { TICKER = t; renderTickerBar(); render(); };
     bar.appendChild(b);
   });
-  render();
 }
 
 function fmtM(v) { return (v >= 0 ? '+' : '') + v.toFixed(1) + 'M'; }
@@ -86,8 +113,16 @@ function render() {
   // Verdict
   const v = document.getElementById('verdict');
   v.innerHTML = '<strong>' + s.verdict.label + '</strong>' + s.verdict.detail;
-  // Levels
+  // Placeholder tickers: levels + grid hidden
   const lv = document.getElementById('levels');
+  const grid = document.getElementById('grid');
+  if (s._placeholder) {
+    lv.innerHTML = '<div class="level"><div class="k">Spot</div><div class="v">' + s.spot.toFixed(2) + '</div><div class="d">last known</div></div>';
+    grid.style.display = 'none';
+    document.getElementById('updated').textContent = '';
+    return;
+  }
+  grid.style.display = '';
   lv.innerHTML = [
     ['Spot', s.spot.toFixed(2), 'live price'],
     ['Net GEX', fmtM(s.net_gex), s.net_gex > 0 ? 'dealers long gamma → chop' : 'dealers short gamma → trends'],
