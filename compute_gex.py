@@ -117,8 +117,8 @@ def compute_gex_for_ticker(symbol):
             flip = s
             break
     
-    # Build rows for heatmap (top 10 strikes by abs GEX)
-    top_strikes = sorted(gex_by_strike.keys(), key=lambda x: abs(gex_by_strike[x]), reverse=True)[:10]
+    # Build rows for heatmap (top 15 strikes by abs GEX)
+    top_strikes = sorted(gex_by_strike.keys(), key=lambda x: abs(gex_by_strike[x]), reverse=True)[:15]
     top_strikes.sort(reverse=True)  # High to low for display
     
     # Simplified: distribute across 5 expiry buckets
