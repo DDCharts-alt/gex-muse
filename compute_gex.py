@@ -59,7 +59,7 @@ def compute_gex_for_ticker(symbol):
     
     for exp_map, is_call in [(body.get("callExpDateMap", {}), True),
                               (body.get("putExpDateMap", {}), False)]:
-        for exp_key in list(exp_map.keys())[:3]:  # First 3 expiries
+        for exp_key in list(exp_map.keys())[:5]:  # First 5 expiries
             if exp_key not in expiries_seen:
                 expiries_seen.append(exp_key)
             for strike_key, contracts in exp_map[exp_key].items():
@@ -121,9 +121,9 @@ def compute_gex_for_ticker(symbol):
     top_strikes = sorted(gex_by_strike.keys(), key=lambda x: abs(gex_by_strike[x]), reverse=True)[:10]
     top_strikes.sort(reverse=True)  # High to low for display
     
-    # Simplified: distribute across 3 expiry buckets
+    # Simplified: distribute across 5 expiry buckets
     exp_labels = []
-    for ek in expiries_seen[:3]:
+    for ek in expiries_seen[:5]:
         # Parse "2026-10-16:4" format
         date_part = ek.split(":")[0]
         exp_labels.append(date_part)
@@ -132,7 +132,8 @@ def compute_gex_for_ticker(symbol):
     for s in top_strikes:
         # Split GEX across expiries proportionally (simplified)
         total = gex_by_strike[s]
-        vals = [round(total * 0.5, 1), round(total * 0.3, 1), round(total * 0.2, 1)]
+        vals = [round(total * 0.35, 1), round(total * 0.25, 1), round(total * 0.2, 1),
+                round(total * 0.12, 1), round(total * 0.08, 1)]
         rows.append({"strike": s, "values": vals, "volume": vol_by_strike.get(s, 0)})
     
     # POC: strike with highest option volume
