@@ -144,13 +144,14 @@ function render() {
   s.rows.forEach(r => {
     const tr = document.createElement('tr');
     const isKing = s.king_node && Math.abs(r.strike - s.king_node.strike) < 0.01;
-    let html = '<td class="strike">' + (isKing ? '👑 ' : '') + r.strike + '</td>';
+    let html = '<td class="strike">' + r.strike + '</td>';
     r.values.forEach(x => {
       let cls = x > 0 ? 'cell-pos' : 'cell-neg';
       if (x === maxPos) cls = 'cell-max-pos';
       if (x === maxNeg) cls = 'cell-max-neg';
       if (Math.abs(r.strike - s.spot) < 0.01) cls += ' cell-spot';
-      html += '<td class="' + cls + '">' + (x === 0 ? '—' : fmtM(x)) + '</td>';
+      const crown = (isKing && cls.includes('cell-max-pos')) ? '👑 ' : '';
+      html += '<td class="' + cls + '">' + crown + (x === 0 ? '—' : fmtM(x)) + '</td>';
     });
     tr.innerHTML = html;
     tbody.appendChild(tr);
