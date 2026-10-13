@@ -42,7 +42,8 @@
 </head>
 <body>
 <h1>GEX Heatmap</h1>
-<div class="sub">Dealer gamma exposure by strike &times; expiry — plain-English positioning map</div>
+<div class="sub">Dealer gamma exposure by strike &times; expiry — plain-English positioning map
+<button id="refresh" style="float:right;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:.8rem;">↻ Refresh</button></div>
 <div class="cats" id="cats"></div>
 <div class="tickers" id="tickers"></div>
 <div class="verdict" id="verdict"></div>
@@ -170,6 +171,14 @@ function render() {
 }
 
 load().catch(e => { document.body.innerHTML = '<p style="padding:20px">Failed to load data.json</p>'; });
+
+document.getElementById('refresh').onclick = () => {
+  // Bypass cache with timestamp
+  fetch('data.json?t=' + Date.now()).then(r => r.json()).then(d => {
+    DATA = d;
+    render();
+  });
+};
 </script>
 </body>
 </html>
