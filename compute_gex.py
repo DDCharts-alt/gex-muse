@@ -22,7 +22,7 @@ REPO_DIR = Path.home() / "workspace" / "gex-muse"
 DATA_JSON = REPO_DIR / "data.json"
 
 # Tickers to compute GEX for (SPX derived from SPY)
-GEX_TICKERS = ["AMZN", "AAPL", "NVDA", "GOOGL", "SPY", "QQQ", "MSFT", "META", "TSLA", "AMD", "AVGO"]
+GEX_TICKERS = ["AMZN", "AAPL", "NVDA", "GOOGL", "SPY", "QQQ", "MSFT", "META", "TSLA", "AMD", "AVGO", "SNDK", "MU"]
 
 
 def call(path, params=None):
@@ -54,13 +54,16 @@ def compute_gex_for_ticker(symbol):
     
     # Aggregate GEX by strike across near-term expiries (first 3)
     gex_by_strike = {}
+    gex_by_expiry = {}  # strike -> {exp_idx: gex}
     vol_by_strike = {}
     vol_front_by_strike = {}
+    vol_by_expiry = {}  # strike -> {exp_idx: volume}
     expiries_seen = []
     
     for exp_map, is_call in [(body.get("callExpDateMap", {}), True),
                               (body.get("putExpDateMap", {}), False)]:
-        for exp_key in list(exp_map.keys())[:5]:  # First 5 expiries
+        exp_keys = list(exp_map.keys())[:5]
+        for exp_idx, exp_key in enumerate(exp_keys):
             if exp_key not in expiries_seen:
                 expiries_seen.append(exp_key)
             for strike_key, contracts in exp_map[exp_key].items():
@@ -75,9 +78,13 @@ def compute_gex_for_ticker(symbol):
                         vol_by_strike[strike] = 0
                     vol_by_strike[strike] += vol
                     
+                    # Track per-expiry volume
+                    if strike not in vol_by_expiry:
+                        vol_by_expiry[strike] = {}
+                    vol_by_expiry[strike][exp_idx] = vol_by_expiry[strike].get(exp_idx, 0) + vol
+                    
                     # Track front-expiry volume separately
-                    exp_list = list(exp_map.keys())[:5]
-                    if exp_key == exp_list[0]:
+                    if exp_idx == 0:
                         if strike not in vol_front_by_strike:
                             vol_front_by_strike[strike] = 0
                         vol_front_by_strike[strike] += vol
@@ -97,6 +104,11 @@ def compute_gex_for_ticker(symbol):
                     if strike not in gex_by_strike:
                         gex_by_strike[strike] = 0
                     gex_by_strike[strike] += gex_m
+                    
+                    # Track per-expiry GEX
+                    if strike not in gex_by_expiry:
+                        gex_by_expiry[strike] = {}
+                    gex_by_expiry[strike][exp_idx] = gex_by_expiry[strike].get(exp_idx, 0) + gex_m
     
     if not gex_by_strike:
         return None
@@ -138,12 +150,23 @@ def compute_gex_for_ticker(symbol):
     
     rows = []
     for s in top_strikes:
-        # Split GEX across expiries proportionally (simplified)
-        total = gex_by_strike[s]
-        vals = [round(total * 0.35, 1), round(total * 0.25, 1), round(total * 0.2, 1),
-                round(total * 0.12, 1), round(total * 0.08, 1)]
+        # Real per-expiry GEX (no fake proportions)
+        vals = [round(gex_by_expiry.get(s, {}).get(i, 0), 1) for i in range(5)]
         rows.append({"strike": s, "values": vals, "volume": vol_by_strike.get(s, 0),
-                     "vol_front": vol_front_by_strike.get(s, 0)})
+                     "vol_front": vol_front_by_strike.get(s, 0),
+                     "vol_by_exp": [vol_by_expiry.get(s, {}).get(i, 0) for i in range(5)]})
+    
+    # Per-expiry king nodes: biggest abs GEX per expiry column
+    kings_by_exp = []
+    for i in range(5):
+        best_strike = None
+        best_abs = 0
+        for s in gex_by_strike:
+            v = abs(gex_by_expiry.get(s, {}).get(i, 0))
+            if v > best_abs:
+                best_abs = v
+                best_strike = s
+        kings_by_exp.append(best_strike)
     
     # POC: strike with highest FRONT-expiry option volume
     poc_strike = max(vol_front_by_strike, key=vol_front_by_strike.get) if vol_front_by_strike else spot
@@ -164,6 +187,7 @@ def compute_gex_for_ticker(symbol):
         "flip": flip,
         "poc": {"strike": poc_strike, "volume": poc_vol},
         "king_node": {"strike": king_strike, "gex": round(king_gex, 1)},
+        "kings_by_exp": kings_by_exp,
         "max_pain": round(spot, 0),  # Placeholder - needs full calc
         "expected_move": round(spot * 0.02, 2),  # Placeholder 2%
         "expiries": exp_labels,

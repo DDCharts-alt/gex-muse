@@ -143,7 +143,6 @@ function render() {
   s.rows.forEach(r => r.values.forEach(x => { if (x > maxPos) maxPos = x; if (x < maxNeg) maxNeg = x; }));
   s.rows.forEach(r => {
     const tr = document.createElement('tr');
-    const isKing = s.king_node && Math.abs(r.strike - s.king_node.strike) < 0.01;
     const isPoc = s.poc && s.poc.strike !== '—' && Math.abs(r.strike - s.poc.strike) < 0.01;
     let html = '<td class="strike">' + r.strike + (isPoc ? ' 📊' : '') + '</td>';
     r.values.forEach((x, i) => {
@@ -151,15 +150,15 @@ function render() {
       if (x === maxPos) cls = 'cell-max-pos';
       if (x === maxNeg) cls = 'cell-max-neg';
       if (Math.abs(r.strike - s.spot) < 0.01) cls += ' cell-spot';
-      const crown = (isKing && cls.includes('cell-max-pos')) ? '👑 ' : '';
-      let cellHtml = crown + (x === 0 ? '—' : fmtM(x));
-      // Front expiry (first column): show volume as sub-line
-      if (i === 0) {
-        const vf = r.vol_front || 0;
-        if (vf > 0) {
-          const vStr = vf >= 1000 ? (vf/1000).toFixed(1) + 'K' : vf;
-          cellHtml += '<br><span style="font-size:.62rem;color:var(--dim)">' + vStr + ' vol</span>';
-        }
+      let cellHtml = (x === 0 ? '—' : fmtM(x));
+      // Crown for per-expiry king (biggest abs GEX in this column)
+      const isExpKing = s.kings_by_exp && s.kings_by_exp[i] !== null && Math.abs(r.strike - s.kings_by_exp[i]) < 0.01;
+      if (isExpKing) cellHtml = '👑 ' + cellHtml;
+      // Show volume as sub-line in every expiry cell
+      const ve = (r.vol_by_exp && r.vol_by_exp[i]) || 0;
+      if (ve > 0) {
+        const vStr = ve >= 1000 ? (ve/1000).toFixed(1) + 'K' : ve;
+        cellHtml += '<br><span style="font-size:.62rem;color:var(--dim)">' + vStr + ' vol</span>';
       }
       html += '<td class="' + cls + '">' + cellHtml + '</td>';
     });
