@@ -55,6 +55,7 @@ def compute_gex_for_ticker(symbol):
     # Aggregate GEX by strike across near-term expiries (first 3)
     gex_by_strike = {}
     vol_by_strike = {}
+    vol_front_by_strike = {}
     expiries_seen = []
     
     for exp_map, is_call in [(body.get("callExpDateMap", {}), True),
@@ -73,6 +74,13 @@ def compute_gex_for_ticker(symbol):
                     if strike not in vol_by_strike:
                         vol_by_strike[strike] = 0
                     vol_by_strike[strike] += vol
+                    
+                    # Track front-expiry volume separately
+                    exp_list = list(exp_map.keys())[:5]
+                    if exp_key == exp_list[0]:
+                        if strike not in vol_front_by_strike:
+                            vol_front_by_strike[strike] = 0
+                        vol_front_by_strike[strike] += vol
                     
                     if oi == 0 or gamma == 0:
                         continue
@@ -134,11 +142,12 @@ def compute_gex_for_ticker(symbol):
         total = gex_by_strike[s]
         vals = [round(total * 0.35, 1), round(total * 0.25, 1), round(total * 0.2, 1),
                 round(total * 0.12, 1), round(total * 0.08, 1)]
-        rows.append({"strike": s, "values": vals, "volume": vol_by_strike.get(s, 0)})
+        rows.append({"strike": s, "values": vals, "volume": vol_by_strike.get(s, 0),
+                     "vol_front": vol_front_by_strike.get(s, 0)})
     
-    # POC: strike with highest option volume
-    poc_strike = max(vol_by_strike, key=vol_by_strike.get) if vol_by_strike else spot
-    poc_vol = vol_by_strike.get(poc_strike, 0)
+    # POC: strike with highest FRONT-expiry option volume
+    poc_strike = max(vol_front_by_strike, key=vol_front_by_strike.get) if vol_front_by_strike else spot
+    poc_vol = vol_front_by_strike.get(poc_strike, 0)
     
     # King node: biggest absolute GEX (Skylit's gravitational center)
     king_strike = max(gex_by_strike, key=lambda x: abs(gex_by_strike[x])) if gex_by_strike else spot

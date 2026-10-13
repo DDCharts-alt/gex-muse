@@ -134,7 +134,7 @@ function render() {
   ].map(([k, val, d]) => '<div class="level"><div class="k">' + k + '</div><div class="v">' + val + '</div><div class="d">' + d + '</div></div>').join('');
   // Grid
   const thead = document.querySelector('#grid thead tr');
-  thead.innerHTML = '<th>Strike</th>' + s.expiries.map(e => '<th>' + e + '</th>').join('') + '<th>Vol</th>';
+  thead.innerHTML = '<th>Strike</th>' + s.expiries.map(e => '<th>' + e + '</th>').join('') + '<th>Vol<br><span style="font-size:.6rem;font-weight:normal">front</span></th>';
   const tbody = document.querySelector('#grid tbody');
   tbody.innerHTML = '';
   // find max abs for highlighting
@@ -153,7 +153,7 @@ function render() {
       const crown = (isKing && cls.includes('cell-max-pos')) ? '👑 ' : '';
       html += '<td class="' + cls + '">' + crown + (x === 0 ? '—' : fmtM(x)) + '</td>';
     });
-    const vol = r.volume || 0;
+    const vol = r.vol_front || 0;
     html += '<td>' + (vol > 0 ? (vol >= 1000 ? (vol/1000).toFixed(1) + 'K' : vol) : '—') + '</td>';
     tr.innerHTML = html;
     tbody.appendChild(tr);
