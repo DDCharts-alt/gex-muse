@@ -54,6 +54,7 @@ def compute_gex_for_ticker(symbol):
     
     # Aggregate GEX by strike across near-term expiries (first 3)
     gex_by_strike = {}
+    vol_by_strike = {}
     expiries_seen = []
     
     for exp_map, is_call in [(body.get("callExpDateMap", {}), True),
@@ -66,6 +67,12 @@ def compute_gex_for_ticker(symbol):
                     strike = float(c.get("strikePrice", 0))
                     oi = int(c.get("openInterest", 0) or 0)
                     gamma = float(c.get("gamma", 0) or 0)
+                    vol = int(c.get("totalVolume", 0) or 0)
+                    
+                    # Track volume by strike (even if no gamma)
+                    if strike not in vol_by_strike:
+                        vol_by_strike[strike] = 0
+                    vol_by_strike[strike] += vol
                     
                     if oi == 0 or gamma == 0:
                         continue
@@ -126,7 +133,11 @@ def compute_gex_for_ticker(symbol):
         # Split GEX across expiries proportionally (simplified)
         total = gex_by_strike[s]
         vals = [round(total * 0.5, 1), round(total * 0.3, 1), round(total * 0.2, 1)]
-        rows.append({"strike": s, "values": vals})
+        rows.append({"strike": s, "values": vals, "volume": vol_by_strike.get(s, 0)})
+    
+    # POC: strike with highest option volume
+    poc_strike = max(vol_by_strike, key=vol_by_strike.get) if vol_by_strike else spot
+    poc_vol = vol_by_strike.get(poc_strike, 0)
     
     # Generate verdict
     verdict = generate_verdict(symbol, spot, net_gex, call_wall_strike, put_wall_strike, flip)
@@ -137,6 +148,7 @@ def compute_gex_for_ticker(symbol):
         "call_wall": {"strike": call_wall_strike, "gex": round(call_wall_gex, 1)},
         "put_wall": {"strike": put_wall_strike, "gex": round(put_wall_gex, 1)},
         "flip": flip,
+        "poc": {"strike": poc_strike, "volume": poc_vol},
         "max_pain": round(spot, 0),  # Placeholder - needs full calc
         "expected_move": round(spot * 0.02, 2),  # Placeholder 2%
         "expiries": exp_labels,
