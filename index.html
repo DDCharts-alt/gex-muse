@@ -129,7 +129,6 @@ function render() {
     ['Call wall', s.call_wall.strike, fmtM(s.call_wall.gex) + ' resistance magnet'],
     ['Put wall', s.put_wall.strike, fmtM(s.put_wall.gex) + ' support magnet'],
     ['Flip', s.flip, 'regime line'],
-    ['POC', s.poc ? s.poc.strike : '—', s.poc ? s.poc.volume.toLocaleString() + ' contracts (vol)' : ''],
     ['Max pain', s.max_pain, 'expiry gravity'],
     ['Exp. move', '±$' + s.expected_move.toFixed(2), 'priced range'],
   ].map(([k, val, d]) => '<div class="level"><div class="k">' + k + '</div><div class="v">' + val + '</div><div class="d">' + d + '</div></div>').join('');
@@ -144,7 +143,8 @@ function render() {
   s.rows.forEach(r => {
     const tr = document.createElement('tr');
     const isKing = s.king_node && Math.abs(r.strike - s.king_node.strike) < 0.01;
-    let html = '<td class="strike">' + r.strike + '</td>';
+    const isPoc = s.poc && s.poc.strike !== '—' && Math.abs(r.strike - s.poc.strike) < 0.01;
+    let html = '<td class="strike">' + r.strike + (isPoc ? ' 📊' : '') + '</td>';
     r.values.forEach(x => {
       let cls = x > 0 ? 'cell-pos' : 'cell-neg';
       if (x === maxPos) cls = 'cell-max-pos';
