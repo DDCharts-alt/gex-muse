@@ -134,7 +134,7 @@ function render() {
   ].map(([k, val, d]) => '<div class="level"><div class="k">' + k + '</div><div class="v">' + val + '</div><div class="d">' + d + '</div></div>').join('');
   // Grid
   const thead = document.querySelector('#grid thead tr');
-  thead.innerHTML = '<th>Strike</th>' + s.expiries.map(e => '<th>' + e + '</th>').join('') + '<th>Vol<br><span style="font-size:.6rem;font-weight:normal">front</span></th>';
+  thead.innerHTML = '<th>Strike</th>' + s.expiries.map(e => '<th>' + e + '</th>').join('');
   const tbody = document.querySelector('#grid tbody');
   tbody.innerHTML = '';
   // find max abs for highlighting
@@ -145,16 +145,23 @@ function render() {
     const isKing = s.king_node && Math.abs(r.strike - s.king_node.strike) < 0.01;
     const isPoc = s.poc && s.poc.strike !== '—' && Math.abs(r.strike - s.poc.strike) < 0.01;
     let html = '<td class="strike">' + r.strike + (isPoc ? ' 📊' : '') + '</td>';
-    r.values.forEach(x => {
+    r.values.forEach((x, i) => {
       let cls = x > 0 ? 'cell-pos' : 'cell-neg';
       if (x === maxPos) cls = 'cell-max-pos';
       if (x === maxNeg) cls = 'cell-max-neg';
       if (Math.abs(r.strike - s.spot) < 0.01) cls += ' cell-spot';
       const crown = (isKing && cls.includes('cell-max-pos')) ? '👑 ' : '';
-      html += '<td class="' + cls + '">' + crown + (x === 0 ? '—' : fmtM(x)) + '</td>';
+      let cellHtml = crown + (x === 0 ? '—' : fmtM(x));
+      // Front expiry (first column): show volume as sub-line
+      if (i === 0) {
+        const vf = r.vol_front || 0;
+        if (vf > 0) {
+          const vStr = vf >= 1000 ? (vf/1000).toFixed(1) + 'K' : vf;
+          cellHtml += '<br><span style="font-size:.62rem;color:var(--dim)">' + vStr + ' vol</span>';
+        }
+      }
+      html += '<td class="' + cls + '">' + cellHtml + '</td>';
     });
-    const vol = r.vol_front || 0;
-    html += '<td>' + (vol > 0 ? (vol >= 1000 ? (vol/1000).toFixed(1) + 'K' : vol) : '—') + '</td>';
     tr.innerHTML = html;
     tbody.appendChild(tr);
   });
