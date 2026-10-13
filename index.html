@@ -129,6 +129,8 @@ function render() {
     ['Call wall', s.call_wall.strike, fmtM(s.call_wall.gex) + ' resistance magnet'],
     ['Put wall', s.put_wall.strike, fmtM(s.put_wall.gex) + ' support magnet'],
     ['Flip', s.flip, 'regime line'],
+    ['👑 King node', s.king_node ? s.king_node.strike : '—', s.king_node ? fmtM(s.king_node.gex) + ' biggest gamma magnet' : ''],
+    ['POC', s.poc ? s.poc.strike : '—', s.poc ? s.poc.volume.toLocaleString() + ' contracts (vol)' : ''],
     ['Max pain', s.max_pain, 'expiry gravity'],
     ['Exp. move', '±$' + s.expected_move.toFixed(2), 'priced range'],
   ].map(([k, val, d]) => '<div class="level"><div class="k">' + k + '</div><div class="v">' + val + '</div><div class="d">' + d + '</div></div>').join('');

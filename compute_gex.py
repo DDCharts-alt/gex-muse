@@ -139,6 +139,10 @@ def compute_gex_for_ticker(symbol):
     poc_strike = max(vol_by_strike, key=vol_by_strike.get) if vol_by_strike else spot
     poc_vol = vol_by_strike.get(poc_strike, 0)
     
+    # King node: biggest absolute GEX (Skylit's gravitational center)
+    king_strike = max(gex_by_strike, key=lambda x: abs(gex_by_strike[x])) if gex_by_strike else spot
+    king_gex = gex_by_strike.get(king_strike, 0)
+    
     # Generate verdict
     verdict = generate_verdict(symbol, spot, net_gex, call_wall_strike, put_wall_strike, flip)
     
@@ -149,6 +153,7 @@ def compute_gex_for_ticker(symbol):
         "put_wall": {"strike": put_wall_strike, "gex": round(put_wall_gex, 1)},
         "flip": flip,
         "poc": {"strike": poc_strike, "volume": poc_vol},
+        "king_node": {"strike": king_strike, "gex": round(king_gex, 1)},
         "max_pain": round(spot, 0),  # Placeholder - needs full calc
         "expected_move": round(spot * 0.02, 2),  # Placeholder 2%
         "expiries": exp_labels,
