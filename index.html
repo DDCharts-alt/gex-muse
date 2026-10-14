@@ -172,10 +172,19 @@ function render() {
 load().catch(e => { document.body.innerHTML = '<p style="padding:20px">Failed to load data.json</p>'; });
 
 document.getElementById('refresh').onclick = () => {
+  const btn = document.getElementById('refresh');
+  btn.textContent = '↻ Loading…';
   // Bypass cache with timestamp
   fetch('data.json?t=' + Date.now()).then(r => r.json()).then(d => {
     DATA = d;
     render();
+    const ts = d.tickers && d.tickers.SPY && d.tickers.SPY.timestamp;
+    const tstr = ts ? new Date(ts).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}) : '';
+    btn.textContent = '↻ Updated ' + tstr;
+    setTimeout(() => { btn.textContent = '↻ Refresh'; }, 3000);
+  }).catch(() => {
+    btn.textContent = '↻ Failed';
+    setTimeout(() => { btn.textContent = '↻ Refresh'; }, 3000);
   });
 };
 </script>
